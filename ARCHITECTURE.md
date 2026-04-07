@@ -1,6 +1,6 @@
 # Heuristic Optimization Visualization Platform — Architecture Guide
 
-> **Version:** 1.0 | **Last Updated:** Phase 1 (Hill Climbing)  
+> **Version:** 1.0 | **Last Updated:** Phase 2 (Gradient Descent)  
 > This document is the single source of truth for project structure, design patterns, and the exact methodology for extending the platform with new algorithms, objective functions, and neighborhood functions.
 
 ---

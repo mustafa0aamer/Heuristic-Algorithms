@@ -68,19 +68,45 @@ export function updatePseudocode(activeLine, variables) {
   }
 }
 
-/**
- * Update the separate live-variables grid below the pseudocode.
- * @param {object} variables
- */
 export function updateVarsPanel(variables) {
-  if (!variables) return;
-  _setVar('var-current-x',   fmt(variables.current_x,   4));
-  _setVar('var-current-val', fmt(variables.current_val, 4));
-  _setVar('var-neighbor-x',   variables.neighbor_x !== null ? fmt(variables.neighbor_x, 4)   : '—');
-  _setVar('var-neighbor-val', variables.neighbor_val !== null ? fmt(variables.neighbor_val, 4) : '—');
-  _setVar('var-best-x',   fmt(variables.best_x,   4));
-  _setVar('var-best-val', fmt(variables.best_val, 4));
-  _setVar('var-iteration', variables.iteration ?? '—');
+  const grid = document.getElementById('vars-grid');
+  if (!variables || !grid) return;
+
+  grid.innerHTML = '';
+  
+  const format = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return isNaN(v) ? 'NaN' : fmt(v, 4);
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    return String(v);
+  };
+
+  const accentKeys = ['best_val', 'best f(x)'];
+
+  for (const [key, rawValue] of Object.entries(variables)) {
+    if (key === 'compare_op' || key === 'accepted' || key === 'numCandidates' || key === 'learningRate') continue;
+    
+    let displayKey = key.replace(/_/g, ' ');
+    if (displayKey === 'current val') displayKey = 'f(current x)';
+    if (displayKey === 'neighbor val') displayKey = 'f(neighbor x)';
+    if (displayKey === 'best val') displayKey = 'best f(x)';
+    
+    const row = document.createElement('div');
+    row.className = 'var-row';
+    if (accentKeys.includes(key) || displayKey === 'best f(x)') row.classList.add('accent');
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'var-name';
+    nameSpan.textContent = displayKey;
+
+    const valSpan = document.createElement('span');
+    valSpan.className = 'var-val';
+    valSpan.textContent = format(rawValue);
+
+    row.appendChild(nameSpan);
+    row.appendChild(valSpan);
+    grid.appendChild(row);
+  }
 }
 
 /** Update the annotation box text */
@@ -100,7 +126,6 @@ export function resetPseudocode() {
   });
   updateVarsPanel({
     current_x: null, current_val: null,
-    neighbor_x: null, neighbor_val: null,
     best_x: null, best_val: null, iteration: null,
   });
   updateAnnotation('Initialize to begin...');
@@ -146,7 +171,7 @@ function _tokenize(line) {
   // Function calls
   html = html.replace(/\b([a-z_][a-z0-9_]*)\(/gi, '<span class="pc-fn">$1</span>(');
   // Variable names that were injected (wrapped identifiers)
-  html = html.replace(/\b(current_x|current_val|neighbor_x|neighbor_val|best_x|best_val|iteration)\b/g,
+  html = html.replace(/\b(current_x|current_val|neighbor_x|neighbor_val|best_x|best_val|iteration|slope|step_size|learningRate)\b/g,
     '<span class="pc-var">$1</span>');
   // Comparison operators (match HTML-escaped < > entities as strings)
   html = html.replace(/(&lt;=?|&gt;=?|==)/g, '<span class="pc-op">$1</span>');

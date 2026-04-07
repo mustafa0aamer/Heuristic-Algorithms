@@ -17,6 +17,7 @@ let renderer   = null;
 let algoModule = null;
 let stepGen    = null;   // Live generator (lazy step production)
 let playTimer  = null;
+let algoParams = {};     // Holds current values for algorithm-specific parameters
 
 // ── Entry Point ────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -199,6 +200,11 @@ function selectAlgorithm(id) {
   setState({ algorithm: id });
   initPseudocode(algoModule.PSEUDOCODE);
   document.getElementById('pseudo-algo-name').textContent = algoModule.METADATA.name;
+  
+  // Set defaults and render UI
+  algoParams = buildDefaultParams(algoModule.PARAMS || []);
+  renderAlgoParams(algoModule);
+  
   resetExecution();
 }
 
@@ -227,6 +233,36 @@ function buildDefaultParams(paramDefs = []) {
   return out;
 }
 
+function renderAlgoParams(algo) {
+  const container = document.getElementById('algo-params-container');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  (algo.PARAMS || []).forEach(p => {
+    if (p.id === 'maxIterations') return; // Handled globally
+    
+    // Support toggleable config
+    const wrap = document.createElement('div');
+    wrap.className = 'param-row';
+    wrap.innerHTML = `
+      <div class="control-label-row mt-sm">
+        <label class="control-sublabel" for="algo-param-${p.id}">${p.label}</label>
+        <span class="value-badge" id="algo-param-display-${p.id}">${p.default}</span>
+      </div>
+      <input class="range-input" type="range" id="algo-param-${p.id}"
+             min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}">
+    `;
+    container.appendChild(wrap);
+
+    document.getElementById(`algo-param-${p.id}`).addEventListener('input', e => {
+      const val = parseFloat(e.target.value);
+      document.getElementById(`algo-param-display-${p.id}`).textContent = val;
+      algoParams[p.id] = val;
+      resetExecution();
+    });
+  });
+}
+
 function renderNeighborParams(fn) {
   const container = document.getElementById('nbr-params-container');
   container.innerHTML = '';
@@ -248,6 +284,7 @@ function renderNeighborParams(fn) {
       document.getElementById(`param-display-${p.id}`).textContent = val;
       const { neighborParams } = getState();
       setState({ neighborParams: { ...neighborParams, [p.id]: val } });
+      resetExecution();
     });
   });
 }
@@ -319,7 +356,7 @@ function buildConfig() {
     neighborFn:     nbrFn,
     mode:           s.mode,
     domain:         s.domain,
-    params:         { maxIterations: s.maxIterations },
+    params:         { ...algoParams, maxIterations: s.maxIterations },
     neighborParams: s.neighborParams,
   };
 }

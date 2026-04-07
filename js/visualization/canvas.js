@@ -269,16 +269,15 @@ export class CanvasRenderer {
     if (!this.trailPoints.length) return;
 
     // Draw connecting line
-    ctx.strokeStyle = 'rgba(148,163,184,0.25)';
-    ctx.lineWidth   = 1.5;
-    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = this._cssVar('--canvas-rejected') || '#f43f5e'; // bright red
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([]);
     ctx.beginPath();
     this.trailPoints.forEach(({ x, val }, i) => {
       const { cx, cy } = this._toCanvas(x, val);
       i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
     });
     ctx.stroke();
-    ctx.setLineDash([]);
 
     // Draw dots
     this.trailPoints.forEach(({ x, val, accepted }, i) => {

@@ -111,7 +111,7 @@
             </label>
             <div class="input-row" style="margin-top:5px">
               <input class="text-input font-code" type="text" id="custom-obj-input"
-                     placeholder="e.g.,  x^2 - 5*x + 4" autocomplete="off"
+                     placeholder="Syntax: Use 'x' (eg: x^2 + 10*sin(x))" autocomplete="off"
                      aria-label="Custom objective function expression" />
               <button class="btn-icon btn-sm" id="apply-obj-btn"
                       title="Apply custom expression" aria-label="Apply custom objective function"
@@ -163,7 +163,7 @@
             </label>
             <div class="input-row" style="margin-top:5px">
               <input class="text-input font-code" type="text" id="custom-nbr-input"
-                     placeholder="e.g.,  x + (random()-0.5)*step" autocomplete="off"
+                     placeholder="Params: x, step, iter, random() (eg: x + random()*step)" autocomplete="off"
                      aria-label="Custom neighbor function expression" />
               <button class="btn-icon btn-sm" id="apply-nbr-btn"
                       title="Apply custom neighbor function" aria-label="Apply custom neighbor function"
@@ -377,7 +377,7 @@
       function updateVisibility() {
         const mobile = isMobile(), tablet = isTablet();
         if (mcBtn) mcBtn.style.display = mobile ? 'inline-flex' : 'none';
-        if (mpBtn) mpBtn.style.display = (mobile || tablet) ? 'inline-flex' : 'none';
+        if (mpBtn) mpBtn.style.display = 'inline-flex'; // Keep visible on desktop to reopen closed panel
       }
       window.addEventListener('resize', updateVisibility);
       updateVisibility();
@@ -391,9 +391,13 @@
       }
       if (mpBtn) {
         mpBtn.addEventListener('click', () => {
-          const open = pseudo.classList.toggle('panel--visible');
-          ctrlPanel.classList.remove('panel--visible');
-          backdrop.classList.toggle('active', open);
+          if (window.innerWidth >= 1024) {
+            document.getElementById('pseudo-toggle').click();
+          } else {
+            const open = pseudo.classList.toggle('panel--visible');
+            ctrlPanel.classList.remove('panel--visible');
+            backdrop.classList.toggle('active', open);
+          }
         });
       }
     })();

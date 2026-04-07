@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Optimization Trace</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #ddd;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            height: 90vh;
+        }
+        .controls {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .controls h2 { margin-top: 0; color: #4CAF50; font-size: 18px;}
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        input, select { 
+            padding: 8px; border: 1px solid #555; 
+            border-radius: 4px; background: #444; color: white;
+        }
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            padding: 10px; flex: 1; border: none; border-radius: 4px;
+            cursor: pointer; font-weight: bold; color: white;
+        }
+        .btn-start { background-color: #4CAF50; }
+        .btn-start:hover { background-color: #45a049; }
+        .btn-step { background-color: #2196F3; }
+        .btn-step:hover { background-color: #0b7dda; }
+        .btn-step:disabled { background-color: #555; cursor: not-allowed; }
+        
+        .main-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            gap: 20px;
+        }
+        .chart-container {
+            background: #2d2d2d; padding: 20px; border-radius: 8px;
+            flex-grow: 1; min-height: 300px;
+        }
+        .trace-panel {
+            background: #111; padding: 15px; border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            height: 250px; overflow-y: auto; border-left: 4px solid #4CAF50;
+            font-size: 14px; line-height: 1.5;
+        }
+        .highlight { color: #FFEB3B; font-weight: bold; }
+        .math-text { color: #00E676; }
+        .alert-text { color: #FF5252; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2>Settings</h2>
+        <p style="font-size: 13px; color: #aaa;">
+            <b>Function:</b> f(x) = x² + 10*sin(x)<br>
+            <b>Derivative:</b> f'(x) = 2x + 10*cos(x)
+        </p>
+        
+        <div class="form-group">
+            <label>Algorithm</label>
+            <select id="algoSelect">
+                <option value="gd">Gradient Descent</option>
+                <option value="hc">Hill Climbing</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Starting X (-10 to 10)</label>
+            <input type="number" id="startX" value="8" step="0.5">
+        </div>
+
+        <div class="form-group">
+            <label id="paramLabel">Learning Rate (δ)</label>
+            <input type="number" id="paramValue" value="0.1" step="0.05">
+        </div>
+
+        <div class="form-group">
+            <label>Execution Mode</label>
+            <select id="runMode" onchange="toggleMode()">
+                <option value="manual">Manual (Step-by-Step)</option>
+                <option value="auto">Auto (Animated)</option>
+            </select>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-start" onclick="initSimulation()">Initialize</button>
+            <button class="btn-step" id="nextStepBtn" onclick="nextStep()">Next Step >></button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+        <div class="trace-panel" id="tracePanel">
+            Welcome to the Algorithm Tracer.<br>
+            Set parameters on the left and click "Initialize".
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Complex Math Functions ---
+        // Function with local minima trap!
+        function f(x) { return (x * x) + (10 * Math.sin(x)); }
+        function df(x) { return (2 * x) + (10 * Math.cos(x)); }
+
+        // --- 2. Global State Variables ---
+        let myChart;
+        let currentX = 0;
+        let iteration = 0;
+        let isFinished = false;
+        let historyData = [];
+        let autoInterval = null;
+
+        // --- 3. Chart Setup ---
+        function initChart() {
+            const ctx = document.getElementById('myChart').getContext('2d');
+            let curveData = [];
+            for (let i = -10; i <= 10; i += 0.2) {
+                curveData.push({ x: i, y: f(i) });
+            }
+
+            if(myChart) myChart.destroy(); // Clear old chart
+            
+            myChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'f(x) = x² + 10sin(x)',
+                        data: curveData,
+                        borderColor: '#888',
+                        borderWidth: 2,
+                        showLine: true,
+                        pointRadius: 0
+                    }, {
+                        label: 'Current Position',
+                        data: [],
+                        borderColor: '#FF5252',
+                        backgroundColor: '#FF5252',
+                        borderWidth: 2,
+                        showLine: true,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { min: -10, max: 10 }, y: { min: -10, max: 120 } },
+                    animation: { duration: 0 }
+                }
+            });
+        }
+
+        // --- 4. UI Handlers ---
+        document.getElementById('algoSelect').addEventListener('change', function() {
+            const label = document.getElementById('paramLabel');
+            if(this.value === 'gd') {
+                label.innerText = 'Learning Rate (δ)';
+                document.getElementById('paramValue').value = 0.1;
+            } else {
+                label.innerText = 'Neighborhood Step Size';
+                document.getElementById('paramValue').value = 0.5;
+            }
+        });
+
+        function toggleMode() {
+            const mode = document.getElementById('runMode').value;
+            document.getElementById('nextStepBtn').disabled = (mode === 'auto');
+        }
+
+        function logTrace(htmlString) {
+            const panel = document.getElementById('tracePanel');
+            panel.innerHTML += "<hr>" + htmlString;
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        // --- 5. Step-by-Step Logic ---
+        function initSimulation() {
+            if(autoInterval) clearInterval(autoInterval);
+            initChart();
+            
+            currentX = parseFloat(document.getElementById('startX').value);
+            iteration = 0;
+            isFinished = false;
+            historyData = [{ x: currentX, y: f(currentX) }];
+            
+            myChart.data.datasets[1].data = historyData;
+            myChart.update();
+
+            document.getElementById('tracePanel').innerHTML = `<b>Initialization:</b> Algorithm ready. Starting point X = ${currentX}`;
+            
+            const mode = document.getElementById('runMode').value;
+            if(mode === 'auto') {
+                autoInterval = setInterval(nextStep, 1000); // 1 second delay
+            }
+        }
+
+        function nextStep() {
+            if (isFinished) return;
+            iteration++;
+
+            const algo = document.getElementById('algoSelect').value;
+            const param = parseFloat(document.getElementById('paramValue').value);
+            let trace = `<b>--- Iteration ${iteration} ---</b><br>`;
+
+            if (algo === 'gd') {
+                // GRADIENT DESCENT
+                let gradient = df(currentX);
+                let moveAmount = param * gradient;
+                let nextX = currentX - moveAmount;
+                
+                trace += `[Gradient Descent]<br>`;
+                trace += `1. Current position <span class="highlight">x = ${currentX.toFixed(4)}</span><br>`;
+                trace += `2. Calculate Slope: f'(x) = 2(${currentX.toFixed(2)}) + 10cos(${currentX.toFixed(2)}) = <span class="math-text">${gradient.toFixed(4)}</span><br>`;
+                trace += `3. Formula: x_new = x - (δ * slope)<br>`;
+                trace += `4. <span class="highlight">x_new = ${currentX.toFixed(4)} - (${param} * ${gradient.toFixed(4)}) = ${nextX.toFixed(4)}</span><br>`;
+                
+                if (Math.abs(gradient) < 0.05) {
+                    trace += `<br><span class="highlight">✅ Slope is almost zero! Minimum found. Stopping.</span>`;
+                    isFinished = true;
+                } else if (Math.abs(nextX) > 20) {
+                    trace += `<br><span class="alert-text">❌ Divergence! Steps are too big. Stopping.</span>`;
+                    isFinished = true;
+                }
+
+                currentX = nextX;
+
+            } else {
+                // HILL CLIMBING
+                let leftNeighbor = currentX - param;
+                let rightNeighbor = currentX + param;
+                
+                let yCurr = f(currentX);
+                let yLeft = f(leftNeighbor);
+                let yRight = f(rightNeighbor);
+
+                trace += `[Hill Climbing]<br>`;
+                trace += `Neighborhood Function N(x) generated 2 neighbors (step = ${param})<br>`;
+                trace += `Current Point: x = ${currentX.toFixed(2)} (y = ${yCurr.toFixed(4)})<br>`;
+                trace += `Left Neighbor: x = ${leftNeighbor.toFixed(2)} (y = ${yLeft.toFixed(4)})<br>`;
+                trace += `Right Neighbor: x = ${rightNeighbor.toFixed(2)} (y = ${yRight.toFixed(4)})<br>`;
+
+                // Compare
+                if (yLeft < yCurr && yLeft < yRight) {
+                    trace += `<br>Decision: Left neighbor is the lowest. <span class="highlight">Moving left to x = ${leftNeighbor.toFixed(2)}</span>`;
+                    currentX = leftNeighbor;
+                } else if (rightNeighbor <= 10 && yRight < yCurr && yRight < yLeft) {
+                    trace += `<br>Decision: Right neighbor is the lowest. <span class="highlight">Moving right to x = ${rightNeighbor.toFixed(2)}</span>`;
+                    currentX = rightNeighbor;
+                } else {
+                    trace += `<br><span class="alert-text">✅ Both neighbors are HIGHER than the current point. We are stuck at a local/global minimum! Stopping.</span>`;
+                    isFinished = true;
+                }
+            }
+
+            // Update UI
+            historyData.push({ x: currentX, y: f(currentX) });
+            myChart.data.datasets[1].data = historyData;
+            myChart.update();
+            logTrace(trace);
+
+            if (isFinished && autoInterval) {
+                clearInterval(autoInterval);
+            }
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initChart();
+            toggleMode();
+        };
+    </script>
+</body>
+</html>

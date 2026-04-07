@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title>HeurViz — Heuristic Optimization Visualizer</title>
+  <meta name="description"
+    content="Interactive, step-by-step visualization of heuristic optimization algorithms: Hill Climbing, Simulated Annealing, and more. Built for learning and education." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- math.js CDN (must load before ES modules that call window.math) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════════════════ -->
+  <header class="app-header" id="app-header">
+    <div class="header-left">
+
+      <!-- Mobile: Controls toggle -->
+      <button class="btn-icon mobile-only" id="mobile-controls-btn"
+              aria-label="Open controls" title="Controls" style="display:none">
+        ☰
+      </button>
+
+      <!-- Logo -->
+      <div class="app-logo">
+        <span class="logo-icon" aria-hidden="true">⬡</span>
+        <span class="logo-text">HeurViz</span>
+      </div>
+
+      <!-- Algorithm selector -->
+      <select id="algorithm-select" class="algo-select" aria-label="Select algorithm"></select>
+    </div>
+
+    <div class="header-right">
+      <!-- Mobile: Pseudocode toggle -->
+      <button class="btn-icon" id="mobile-pseudo-btn"
+              aria-label="Toggle pseudocode panel" title="Pseudocode"
+              style="display:none; font-size:13px;">
+        📋
+      </button>
+
+      <!-- Theme toggle -->
+      <button class="btn-icon" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme">
+        <span class="theme-icon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Backdrop for mobile panels -->
+  <div class="panel-backdrop" id="panel-backdrop"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MAIN LAYOUT: 3-column grid
+  ══════════════════════════════════════════════════════════ -->
+  <main class="app-main" id="app-main">
+
+    <!-- ────────────────────────────────────────────────────────
+         LEFT: Controls Panel
+    ──────────────────────────────────────────────────────── -->
+    <aside class="controls-panel" id="controls-panel" aria-label="Algorithm configuration">
+
+      <div class="panel-header">
+        <span class="panel-title">Configuration</span>
+        <button class="btn-icon btn-sm" id="controls-toggle"
+                aria-label="Collapse controls panel" title="Collapse">‹</button>
+      </div>
+
+      <div class="controls-body" id="controls-body">
+
+        <!-- Optimization Mode -->
+        <div class="control-group">
+          <label class="control-label">Optimization Mode</label>
+          <div class="toggle-group" id="mode-toggle" role="group" aria-label="Optimization mode">
+            <button class="toggle-btn active" data-mode="maximize" id="mode-max"
+                    aria-pressed="true">▲ Maximize</button>
+            <button class="toggle-btn" data-mode="minimize" id="mode-min"
+                    aria-pressed="false">▼ Minimize</button>
+          </div>
+        </div>
+
+        <!-- Objective Function -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label class="control-label" for="obj-fn-select">Objective Function</label>
+            <button class="btn-text btn-sm" id="random-obj-btn"
+                    title="Pick a random function" aria-label="Random objective function">
+              🎲 Random
+            </button>
+          </div>
+          <select class="select-input" id="obj-fn-select" aria-label="Objective function">
+            <!-- Populated by JS -->
+          </select>
+
+          <!-- Custom expression -->
+          <div class="expandable" id="custom-obj-section" aria-hidden="true">
+            <label class="control-sublabel" for="custom-obj-input">
+              Custom  (use <code style="font-family:var(--font-code)">x</code>)
+            </label>
+            <div class="input-row" style="margin-top:5px">
+              <input class="text-input font-code" type="text" id="custom-obj-input"
+                     placeholder="e.g.,  x^2 - 5*x + 4" autocomplete="off"
+                     aria-label="Custom objective function expression" />
+              <button class="btn-icon btn-sm" id="apply-obj-btn"
+                      title="Apply custom expression" aria-label="Apply custom objective function"
+                      style="flex-shrink:0; color:var(--success); font-size:16px;">✓</button>
+            </div>
+            <span class="help-text" id="obj-status" role="status"></span>
+          </div>
+
+          <label class="control-sublabel mt-sm">
+            <input type="checkbox" id="use-custom-obj" aria-label="Use custom objective function" />
+            Use custom expression
+          </label>
+        </div>
+
+        <!-- Domain -->
+        <div class="control-group">
+          <label class="control-label">Domain  [x_min, x_max]</label>
+          <div class="input-row">
+            <input class="text-input" type="number" id="domain-min"
+                   value="-5" step="0.5" aria-label="Domain minimum" />
+            <span class="to-label">to</span>
+            <input class="text-input" type="number" id="domain-max"
+                   value="5"  step="0.5" aria-label="Domain maximum" />
+          </div>
+        </div>
+
+        <!-- Neighborhood Function -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label class="control-label" for="nbr-fn-select">Neighborhood Function</label>
+            <button class="btn-text btn-sm" id="random-nbr-btn"
+                    title="Pick a random neighborhood function" aria-label="Random neighborhood function">
+              🎲 Random
+            </button>
+          </div>
+          <select class="select-input" id="nbr-fn-select" aria-label="Neighborhood function">
+            <!-- Populated by JS -->
+          </select>
+
+          <!-- Dynamic parameter sliders — injected by JS -->
+          <div id="nbr-params-container"></div>
+
+          <!-- Custom neighbor expression -->
+          <div class="expandable" id="custom-nbr-section" aria-hidden="true">
+            <label class="control-sublabel" for="custom-nbr-input">
+              Custom  (uses <code style="font-family:var(--font-code)">x</code>,
+              <code style="font-family:var(--font-code)">step</code>,
+              <code style="font-family:var(--font-code)">iter</code>)
+            </label>
+            <div class="input-row" style="margin-top:5px">
+              <input class="text-input font-code" type="text" id="custom-nbr-input"
+                     placeholder="e.g.,  x + (random()-0.5)*step" autocomplete="off"
+                     aria-label="Custom neighbor function expression" />
+              <button class="btn-icon btn-sm" id="apply-nbr-btn"
+                      title="Apply custom neighbor function" aria-label="Apply custom neighbor function"
+                      style="flex-shrink:0; color:var(--success); font-size:16px;">✓</button>
+            </div>
+            <span class="help-text" id="nbr-status" role="status"></span>
+          </div>
+
+          <label class="control-sublabel mt-sm">
+            <input type="checkbox" id="use-custom-nbr" aria-label="Use custom neighbor function" />
+            Use custom neighbor function
+          </label>
+        </div>
+
+        <!-- Max Iterations -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label class="control-label" for="max-iter-slider">Max Iterations</label>
+            <span class="value-badge" id="max-iter-display" aria-live="polite">100</span>
+          </div>
+          <input type="range" class="range-input" id="max-iter-slider"
+                 min="1" max="500" step="1" value="100"
+                 aria-label="Maximum iterations" aria-valuemin="1" aria-valuemax="500" />
+        </div>
+
+        <!-- Playback Speed -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label class="control-label" for="speed-slider">Playback Speed</label>
+            <span class="value-badge" id="speed-display" aria-live="polite">Normal</span>
+          </div>
+          <input type="range" class="range-input" id="speed-slider"
+                 min="100" max="2000" step="100" value="600"
+                 aria-label="Playback speed (ms per step)" />
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button class="btn btn-primary btn-run" id="run-btn"
+                  aria-label="Run algorithm">
+            <span class="btn-icon-inner" aria-hidden="true">▶</span> Run
+          </button>
+          <button class="btn btn-secondary" id="step-btn" disabled
+                  aria-label="Step forward one iteration">
+            <span class="btn-icon-inner" aria-hidden="true">→|</span> Step
+          </button>
+          <button class="btn btn-outline btn-danger" id="reset-btn"
+                  aria-label="Reset algorithm">
+            <span class="btn-icon-inner" aria-hidden="true">↺</span> Reset
+          </button>
+        </div>
+
+      </div><!-- /controls-body -->
+    </aside>
+
+    <!-- ────────────────────────────────────────────────────────
+         CENTER: Visualization
+    ──────────────────────────────────────────────────────── -->
+    <section class="viz-section" id="viz-section" aria-label="Algorithm visualization">
+
+      <!-- Function display + mode badge -->
+      <div class="viz-header">
+        <div class="viz-fn-display">
+          <span class="fn-label">f(x) =</span>
+          <span class="fn-expr font-code" id="fn-expr-display" aria-live="polite">x²</span>
+        </div>
+        <div class="viz-badges">
+          <span class="badge" id="mode-badge" aria-live="polite">▲ Maximize</span>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <canvas id="main-canvas" role="img"
+                aria-label="Function landscape visualization"></canvas>
+
+        <!-- Idle overlay — hidden when algorithm starts -->
+        <div class="canvas-overlay" id="canvas-overlay" aria-hidden="true">
+          <p>Select a function and press<br/>
+             <strong>▶ Run</strong> or <strong>→| Step</strong> to begin</p>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="stats-bar" id="stats-bar" role="status" aria-live="polite" aria-atomic="false">
+        <div class="stat-item">
+          <span class="stat-label">Status</span>
+          <span class="stat-value status-badge" id="stat-status">Idle</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Iteration</span>
+          <span class="stat-value font-code" id="stat-iteration">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Current x</span>
+          <span class="stat-value font-code" id="stat-x">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">f(current)</span>
+          <span class="stat-value font-code" id="stat-val">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Best x</span>
+          <span class="stat-value font-code" id="stat-best-x">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Best f(x)</span>
+          <span class="stat-value font-code highlight" id="stat-best-val">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Last Move</span>
+          <span class="stat-value" id="stat-move">—</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ────────────────────────────────────────────────────────
+         RIGHT: Pseudocode Panel
+    ──────────────────────────────────────────────────────── -->
+    <aside class="pseudocode-panel" id="pseudocode-panel"
+           aria-label="Live pseudocode with variable values">
+
+      <div class="panel-header">
+        <span class="panel-title">📋 Pseudocode</span>
+        <button class="btn-icon btn-sm" id="pseudo-toggle"
+                aria-label="Collapse pseudocode panel" title="Collapse">›</button>
+      </div>
+
+      <div class="pseudo-body" id="pseudo-body">
+
+        <div class="pseudo-algo-name" id="pseudo-algo-name">Hill Climbing</div>
+
+        <!-- Pseudocode lines — populated by pseudocode.js -->
+        <ol class="pseudocode-list" id="pseudocode-list" aria-label="Algorithm pseudocode"></ol>
+
+        <div class="pseudo-divider"></div>
+
+        <!-- Live Variables -->
+        <div class="vars-section">
+          <div class="vars-header">📊 Live Variables</div>
+          <div class="vars-grid" id="vars-grid">
+            <div class="var-row">
+              <span class="var-name">current_x</span>
+              <span class="var-val" id="var-current-x">—</span>
+            </div>
+            <div class="var-row">
+              <span class="var-name">f(current_x)</span>
+              <span class="var-val" id="var-current-val">—</span>
+            </div>
+            <div class="var-row">
+              <span class="var-name">neighbor_x</span>
+              <span class="var-val" id="var-neighbor-x">—</span>
+            </div>
+            <div class="var-row">
+              <span class="var-name">f(neighbor_x)</span>
+              <span class="var-val" id="var-neighbor-val">—</span>
+            </div>
+            <div class="var-row">
+              <span class="var-name">best_x</span>
+              <span class="var-val" id="var-best-x">—</span>
+            </div>
+            <div class="var-row accent">
+              <span class="var-name">best f(x)</span>
+              <span class="var-val" id="var-best-val">—</span>
+            </div>
+            <div class="var-row">
+              <span class="var-name">iteration</span>
+              <span class="var-val" id="var-iteration">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step annotation -->
+        <div class="annotation-box" id="annotation-box">
+          <span class="annotation-text" id="annotation-text"
+                aria-live="polite">
+            Configure settings and press Run or Step to begin.
+          </span>
+        </div>
+
+      </div><!-- /pseudo-body -->
+    </aside>
+
+  </main><!-- /app-main -->
+
+  <!-- Toast container (aria-live region for screen readers) -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MOBILE PANEL MANAGEMENT (inline, tiny, no extra file)
+  ══════════════════════════════════════════════════════════ -->
+  <script>
+    // Show mobile buttons on small screens and wire up slide-in panels
+    (function() {
+      const isMobile  = () => window.innerWidth < 768;
+      const isTablet  = () => window.innerWidth < 1024;
+      const backdrop  = document.getElementById('panel-backdrop');
+      const ctrlPanel = document.getElementById('controls-panel');
+      const pseudo    = document.getElementById('pseudocode-panel');
+      const mcBtn     = document.getElementById('mobile-controls-btn');
+      const mpBtn     = document.getElementById('mobile-pseudo-btn');
+
+      function closeAll() {
+        ctrlPanel.classList.remove('panel--visible');
+        pseudo.classList.remove('panel--visible');
+        backdrop.classList.remove('active');
+      }
+      backdrop.addEventListener('click', closeAll);
+
+      function updateVisibility() {
+        const mobile = isMobile(), tablet = isTablet();
+        if (mcBtn) mcBtn.style.display = mobile ? 'inline-flex' : 'none';
+        if (mpBtn) mpBtn.style.display = (mobile || tablet) ? 'inline-flex' : 'none';
+      }
+      window.addEventListener('resize', updateVisibility);
+      updateVisibility();
+
+      if (mcBtn) {
+        mcBtn.addEventListener('click', () => {
+          const open = ctrlPanel.classList.toggle('panel--visible');
+          pseudo.classList.remove('panel--visible');
+          backdrop.classList.toggle('active', open);
+        });
+      }
+      if (mpBtn) {
+        mpBtn.addEventListener('click', () => {
+          const open = pseudo.classList.toggle('panel--visible');
+          ctrlPanel.classList.remove('panel--visible');
+          backdrop.classList.toggle('active', open);
+        });
+      }
+    })();
+  </script>
+
+  <!-- ── Canvas overlay auto-hide ── -->
+  <script>
+    // Hide the "idle" overlay once the algorithm starts
+    const _origStep = null;
+    document.addEventListener('DOMContentLoaded', () => {
+      const overlay = document.getElementById('canvas-overlay');
+      ['run-btn', 'step-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', () => {
+          overlay?.classList.add('hidden');
+        }, { once: false });
+      });
+      document.getElementById('reset-btn')?.addEventListener('click', () => {
+        overlay?.classList.remove('hidden');
+      });
+    });
+  </script>
+
+  <!-- Main application module -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
